@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+  <title>Leaflet - Particle animation</title>
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Load Leaflet 1.3.1 -->
+  <link rel="stylesheet" href="leaflet/leaflet.css" integrity="sha256-NUykZmi4kbsqfyw0XgSwmjUlpqW/u74zu5ibK9DuiSY=" crossorigin=""/>
+  <script src="leaflet/leaflet.js" integrity="sha256-VxczYNPPl3vWEQjM566cf3Le5VD0hnABQ1iohWuvfqc=" crossorigin=""></script>
+
+  <!-- Load Esri Leaflet 2.1.4 -->
+  <script src="esri-leaflet/esri-leaflet.js" integrity="sha256-5QgVwsPW6/SFxy0erdtA6j9XK682s/cOIrUiq8BuYGw=" crossorigin=""></script>
+
+  <!-- Load JQuery 3.3.1 -->
+  <script src="jquery-3.3.1.min.js" integrity="sha256-oozPintQUive6gzYPN7KIhwY/B+d8+5rPTxI1ZkgaFU=" crossorigin=""></script>
+
+  <!--leaflet-velocity-->
+  <link rel="stylesheet" href="leaflet-velocity_tkws/leaflet-velocity.css" />
+  <script src="leaflet-velocity_tkws/leaflet-velocity.js"></script>
+  <script src="leaflet-velocity_tkws/IE_workarounds.js"></script>
+
+  <!--for timeslider-->
+  <script type="text/javascript" src="leafletTimeDimension/iso8601.min.js"></script>
+  <script type="text/javascript" src="leafletTimeDimension/leaflet.timedimension.noLayers.src.js"></script>
+  <link rel="stylesheet" href="leafletTimeDimension/leaflet.timedimension.control.min.css" />
+
+  <!--load variable values from server-->
+  <script type="text/javascript" src="weather/javascript_vars.js"></script>
+  <script type="text/javascript" src="weather/javascript_vars_rtofs.js"></script>
+
+  <style>
+    body { margin:0; padding:0; }
+    #map { position: absolute; top:0; bottom:0; right:0; left:0; z-index:1; }
+  </style>
+</head>
+<body>
+
+  <style>
+    #basemaps-wrapper {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 400;
+      background: black;
+      padding: 10px;
+    }
+    #basemaps {
+      margin-bottom: 5px;
+    }
+
+    /* No rounded borders */
+    .leaflet-bar,
+    .leaflet-control-layers,
+    .leaflet-control-zoom-in,
+    .leaflet-control-zoom-out,
+    .leaflet-popup-content-wrapper {
+      border-radius: 0px !important;
+    }
+
+    /* Panel to interact with layers */
+    #floating-panel {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10000;
+      background-color: #111;
+      padding: 2px;
+      opacity: 0.7;
+    }
+
+    #floating-panel ul {
+      list-style-type: none;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    #floating-panel ul li>label {
+      display: block;
+      margin: 2px;
+    }
+
+    #floating-panel ul li {
+      margin-bottom: 10px;
+    }
+
+    .verticalRange {
+      margin-top: 60px!important;
+      margin-bottom: 60px!important;
+      margin-left: -30px;
+      margin-right: -30px;
+      transform: rotate(270deg);
+    }
+
+    body {
+      color: white;
+      font-family: sans-serif;
+      font-weight: 100;
+      font-size: x-small;
+    }
+  </style>
+
+  <div id="map"></div>
+  <div id="floating-panel">
+    <ul>
+      <li>
+        <label >Favorite parameter?</label>
+        <select name="parameter" id="parameter" onChange="parameterUpdate()">
+          <option selected value="wind10m" >wind10m</option>
+          <option value="seaSurfaceCurrent" >seaSurfaceCurrent</option>
+        </select>
+      </li>
+      <li>
+        <label>displayValues</label>
+        <input id="displayValues" type="checkbox" value="displayValues" checked>
+        <output id="displayValuesText" for="displayValues">true</output>
+      </li>
+      <li>
+        <label>velocityType</label>
+        <input id="velocityType" type="text" value="Current">
+      </li>
+      <li>
+        <label>emptyString</label>
+        <input id="emptyString" type="text" value="No current data">
+      </li>
+      <li>
+        <label>angleConvention</label>
+        <fieldset>
+          <input id="meteoCW" type="radio" name="angleConvention" value="meteoCW" onClick="angleConvention(this.id)">
+          <label for="meteoCW"> meteoCW</label>
+          <input id="meteoCCW" type="radio" name="angleConvention" value="meteoCCW" onClick="angleConvention(this.id)">
+          <label for="meteoCCW"> meteoCCW</label>
+          <input id="bearingCW" type="radio" name="angleConvention" value="bearingCW" onClick="angleConvention(this.id)" checked>
+          <label for="bearingCW"> bearingCW</label>
+          <input id="bearingCCW" type="radio" name="angleConvention" value="bearingCCW" onClick="angleConvention(this.id)">
+          <label for="bearingCCW"> bearingCCW</label>
+        </fieldset>
+      </li>
+      <li>
+        <label>speedUnit</label>
+        <fieldset>
+          <input id="m/s" type="radio" name="speedUnit" value="m/s" onClick="speedUnit(this.id)">
+          <label for="m/s"> m/s</label>
+          <input id="km/h" type="radio" name="speedUnit" value="km/h" onClick="speedUnit(this.id)">
+          <label for="km/h"> km/h</label>
+          <input id="kt" type="radio" name="speedUnit" value="kt" onClick="speedUnit(this.id)" checked>
+          <label for="kt"> kt</label>
+          <input id="Bft" type="radio" name="speedUnit" value="Bft" onClick="speedUnit(this.id)">
+          <label for="Bft"> Bft</label>
+        </fieldset>
+      </li>
+      <li>
+        <label>minVelocity in m/s</label>
+        <input id="minVelocity" type="number" min=0 max=100 step="0.1" value=0>
+      </li>
+      <li>
+        <label>maxVelocity in m/s</label>
+        <input id="maxVelocity" type="number" min=0 max=100 step="0.1" value=1.5>
+      </li>
+      <li>
+        <label>VelocityScale</label>
+        <input id="velocityScaleSlider" type="range" min=0.001 max=0.1 step=0.001 value=0.03>
+        <output id="velocityScaleNumber" for="velocityScaleSlider">0.03</output>
+      </li>
+      <li>
+        <label>particleAge</label>
+        <input id="particleAgeSlider" type="range" min=10 max=300 step=10 value=90>
+        <output id="particleAgeNumber" for="particleAgeSlider">90</output>
+      </li>
+      <li>
+        <label>lineWidth</label>
+        <input id="lineWidthSlider" type="range" min=1 max=30 step=1 value=3>
+        <output id="lineWidthNumber" for="lineWidthSlider">3</output>
+      </li>
+      <li>
+        <label>particleMultiplier</label>
+        <input id="particleMultiplierSlider" type="range" min=0.0001 max=0.01 step=0.0001 value=0.0033>
+        <output id="particleMultiplierNumber" for="particleMultiplierSlider">0.0033</output>
+      </li>
+      <li>
+        <label>frameRate</label>
+        <input id="frameRateSlider" type="range" min=1 max=30 step=1 value=15>
+        <output id="frameRateNumber" for="frameRateSlider">15</output>
+      </li>
+      <li>
+        <label>ColorScale</label>
+        <input id="0" type="color" value="#2468b4" onChange="changeColorScale(this.id)">
+        <input id="1" type="color" value="#3c9dc2" onChange="changeColorScale(this.id)">
+        <input id="2" type="color" value="#80cdc1" onChange="changeColorScale(this.id)">
+        <input id="3" type="color" value="#97daa8" onChange="changeColorScale(this.id)">
+        <input id="4" type="color" value="#c6e7b5" onChange="changeColorScale(this.id)"><br />
+        <input id="5" type="color" value="#eef7d9" onChange="changeColorScale(this.id)">
+        <input id="6" type="color" value="#ffee9f" onChange="changeColorScale(this.id)">
+        <input id="7" type="color" value="#fcd97d" onChange="changeColorScale(this.id)">
+        <input id="8" type="color" value="#ffb664" onChange="changeColorScale(this.id)">
+        <input id="9" type="color" value="#fc964b" onChange="changeColorScale(this.id)"><br />
+        <input id="10" type="color" value="#fa7034" onChange="changeColorScale(this.id)">
+        <input id="11" type="color" value="#f54020" onChange="changeColorScale(this.id)">
+        <input id="12" type="color" value="#ed2d1c" onChange="changeColorScale(this.id)">
+        <input id="13" type="color" value="#dc1820" onChange="changeColorScale(this.id)">
+        <input id="14" type="color" value="#b40023" onChange="changeColorScale(this.id)">
+      </li>
+      <li>
+        <button onclick="showCode()">show the code for this layer</button>
+      </li>
+    </ul>
+  </div>
+
+  <script>
+    var osmUrl='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    var osmAttrib='Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors';
+    var OpenStreetMap = new L.tileLayer(osmUrl, {maxZoom: 18, attribution: osmAttrib, opacity: 0.4}),
+      Topographic = new L.esri.basemapLayer('Topographic', {opacity: 0.4}),
+      Streets = new L.esri.basemapLayer('Streets', {opacity: 0.4}),
+      NationalGeographic = new L.esri.basemapLayer('NationalGeographic', {opacity: 0.4}),
+      Oceans = new L.esri.basemapLayer('Oceans', {opacity: 0.4}),
+      Gray = new L.esri.basemapLayer('Gray', {opacity: 0.4}),
+      DarkGray = new L.esri.basemapLayer('DarkGray'),
+      Imagery = new L.esri.basemapLayer('Imagery'),
+      ShadedRelief = new L.esri.basemapLayer('ShadedRelief', {opacity: 0.4});
+
+    <!-- variables for GFS data -->
+    var startTimeGFS = new Date(Date.UTC(GFS_server_year, GFS_server_month - 1, GFS_server_day, GFS_server_hour));
+    var actualTimeGFS = new Date(Date.UTC(GFS_server_year, GFS_server_month - 1, GFS_server_day, GFS_server_hour + 6));
+    var endTimeGFS = new Date(Date.UTC(GFS_server_year, GFS_server_month - 1, GFS_server_day, GFS_server_hour + ((GFS_timesteps-1)*GFS_interval)));
+    var dataTimeIntervalGFS = startTimeGFS.toISOString() + "/" + endTimeGFS.toISOString();
+    var actualIntervalGFS = GFS_interval*2 ; // show only every second available timestep
+    var baseIndexGFS = 1; // index of the wind10mArray containing the layer nearest to the actual time (2 if actualIndex==GFS_Index, 1 if actualIndex==GFS_Index*2)
+    var dataPeriodGFS = "PT" + (actualIntervalGFS) + "H";
+    var wind10mBaseURL = 'weather/wind10m/';
+    var wind10mBaseName = 'wind10m_{h}h';
+    var wind10mName = '';
+    var wind10mArray = [];
+
+    <!-- variables for RTOFS data -->
+    var startTimeRTOFS = new Date(Date.UTC(RTOFS_server_year, RTOFS_server_month - 1, RTOFS_server_day, RTOFS_server_hour));
+    var actualTimeRTOFS = new Date(Date.UTC(RTOFS_server_year, RTOFS_server_month - 1, RTOFS_server_day, RTOFS_server_hour + 6));
+    var endTimeRTOFS = new Date(Date.UTC(RTOFS_server_year, RTOFS_server_month - 1, RTOFS_server_day, RTOFS_server_hour + ((RTOFS_timesteps-1)*RTOFS_interval)));
+    var dataTimeIntervalRTOFS = startTimeRTOFS.toISOString() + "/" + endTimeRTOFS.toISOString();
+    var actualIntervalRTOFS = RTOFS_interval*2 ; // show only every second available timestep
+    var baseIndexRTOFS = 1; // index of the seaSurfaceCurrent Array containing the layer nearest to the actual time (2 if actualIndex==RTOFS_Index, 1 if actualIndex==RTOFS_Index*2)
+    var dataPeriodRTOFS = "PT" + (actualIntervalRTOFS) + "H";
+    var seaSurfaceCurrentBaseURL = 'weather/sea_surface_current/';
+    var seaSurfaceCurrentBaseName = 'sea_surface_current_{h}h';
+    var seaSurfaceCurrentName = '';
+    var seaSurfaceCurrentArray = [];
+
+    let actualLayer = 'wind10m'; <!-- place the Layer you want to see here options: wind10m, seaSurfaceCurrent -->
+
+    let actualModel;
+    let startTime;
+    let actualTime;
+    let endTime;
+    let dataTimeInterval;
+    let actualInterval;
+    let baseIndex;
+    let dataPeriod;
+    let actualLayerBaseURL;
+    let actualLayerBaseName;
+    let actualLayerName = '';
+    let actualLayerArray = [];
+
+    <!-- variables to configure the visualization -->
+    let angleConventionValue;
+    let speedUnitValue;
+    let colorScale;
+    let parameter = 'wind10m';
+
+    /* Basic style adjustments with controls */
+    let displayValues = document.getElementById('displayValues');
+    displayValues.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+
+    let velocityType = document.getElementById('velocityType');
+    velocityType.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+
+    let emptyString = document.getElementById('emptyString');
+    emptyString.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+
+    let minVelocity = document.getElementById('minVelocity');
+    minVelocity.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+
+    let maxVelocity = document.getElementById('maxVelocity');
+    maxVelocity.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+
+    let velocityScale = document.getElementById('velocityScaleSlider');
+    velocityScale.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+    document.getElementById('velocityScaleSlider').addEventListener('click', updateNumber_4);
+
+    let particleAge = document.getElementById('particleAgeSlider');
+    particleAge.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+    document.getElementById('particleAgeSlider').addEventListener('click', updateNumber_0); //for updating of the text
+
+    let lineWidth = document.getElementById('lineWidthSlider');
+    lineWidth.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+    document.getElementById('lineWidthSlider').addEventListener('click', updateNumber_0); //for updating of the text
+
+    let particleMultiplier = document.getElementById('particleMultiplierSlider');
+    particleMultiplier.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+    document.getElementById('particleMultiplierSlider').addEventListener('click', updateNumber_4); //for updating of the text
+
+    let frameRate = document.getElementById('frameRateSlider');
+    frameRate.addEventListener('change', function () {
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    });
+    document.getElementById('frameRateSlider').addEventListener('click', updateNumber_0); //for updating of the text
+
+    <!-- variables to configure the initialization values -->
+    let initDisplayValues, initVelocityType, initEmptyString, initAngleConvention, initSpeedUnit, initMinVelocity, initMaxVelocity, initVelocityScale, initParticleAge, initLineWidth, initParticleMultiplier, initFrameRate, initColorScale;
+
+    switchParameter (actualLayer);
+
+
+
+    var map = new L.map('map', {
+      center: [54.04, 9.07],
+      zoom: 4,
+      layers: [Imagery],
+      timeDimension: true,
+      timeDimensionOptions: {
+        timeInterval: dataTimeInterval,
+        period: dataPeriod,
+        currentTime: actualTime
+      },
+      timeDimensionControl: true,
+      timeDimensionControlOptions: {
+        loopButton: false,
+        speedStep: 0.1,
+        minSpeed: 0.2,
+        maxSpeed: 0.3,
+        limitSliders: false,
+        limitMinimumRange: 24/GFS_interval,
+        playButton: false,
+        speedSlider: false
+      }
+    });
+
+    var baseMaps = {
+      "OpenStreetMap": OpenStreetMap,
+      "Topographic": Topographic,
+      "Streets": Streets,
+      "NationalGeographic": NationalGeographic,
+      "<span style='color: gray'>Gray</span>": Gray,
+      "DarkGray": DarkGray,
+      "Imagery": Imagery,
+      "ShadedRelief": ShadedRelief,
+      "Oceans": Oceans,
+    };
+
+    var layerControl = new L.control.layers(baseMaps);
+    layerControl.addTo(map);
+
+    var actualLayerGroup = new L.layerGroup([], {});
+    actualLayerArray.length = map.timeDimension._availableTimes.length;
+
+    var actualTimeIndex = map.timeDimension._currentTimeIndex;
+
+    // load data (u, v grids) from weather.openportguide.de
+    layerControl.addOverlay(actualLayerGroup, actualLayer);
+    initializeLayer(actualLayerArray[actualTimeIndex]);
+
+    window.setInterval(function() {
+      if (actualTimeIndex != map.timeDimension._currentTimeIndex) {
+        actualTimeIndex = map.timeDimension._currentTimeIndex;
+        updateLayer(actualLayerArray[actualTimeIndex]);
+      }
+    },100);
+
+    function initializeLayer(Layer){ //initialize the actual layer
+      actualLayerGroup.clearLayers();
+      actualLayerName = actualLayerBaseName.replace(/{h}/g, (actualTimeIndex - baseIndex) * actualInterval);
+
+      document.getElementById('displayValues').checked = initDisplayValues;
+      document.getElementById('velocityType').value = initVelocityType;
+      document.getElementById('emptyString').value = initEmptyString;
+      document.getElementById(initAngleConvention).checked = true;
+      angleConventionValue = initAngleConvention;
+      document.getElementById(initSpeedUnit).checked = true;
+      speedUnitValue = initSpeedUnit;
+      document.getElementById('minVelocity').value = initMinVelocity;
+      document.getElementById('maxVelocity').value = initMaxVelocity;
+      document.getElementById('velocityScaleSlider').value = initVelocityScale;
+      document.getElementById('particleAgeSlider').value = initParticleAge;
+      document.getElementById('lineWidthSlider').value = initLineWidth;
+      document.getElementById('particleMultiplierSlider').value = initParticleMultiplier;
+      document.getElementById('frameRateSlider').value = initFrameRate;
+      for (let i = 0; i < 15; i++) {
+      document.getElementById(i).value = initColorScale[i];
+      }
+      colorScale = initColorScale;
+
+      $.getJSON(actualLayerBaseURL + actualLayerName + ".json", function (data) {
+        this[actualLayerName] = L.velocityLayer({
+          displayValues: document.getElementById('displayValues').checked,
+          displayOptions: {
+            velocityType: document.getElementById('velocityType').value,
+            emptyString: document.getElementById('emptyString').value,
+            angleConvention: angleConventionValue,
+            speedUnit: speedUnitValue
+          },
+          data: data,
+          minVelocity: parseFloat(document.getElementById('minVelocity').value),
+          maxVelocity: parseFloat(document.getElementById('maxVelocity').value),
+          velocityScale: parseFloat(document.getElementById('velocityScaleSlider').value),
+          particleAge: parseInt(document.getElementById('particleAgeSlider').value),
+          lineWidth: parseInt(document.getElementById('lineWidthSlider').value),
+          particleMultiplier: parseFloat(document.getElementById('particleMultiplierSlider').value),
+          frameRate: parseInt(document.getElementById('frameRateSlider').value),
+          colorScale: colorScale
+        });
+
+        actualLayerGroup.addLayer(this[actualLayerName]);
+        actualLayerArray[actualTimeIndex] = actualLayerGroup.getLayer(actualLayerGroup.getLayerId(this[actualLayerName]));
+        actualLayerGroup.addTo(map);
+      });
+
+    }
+
+    function updateLayer(Layer){ //updates the actual layer
+      map.timeDimension.options.timeInterval = dataTimeInterval;
+      map.timeDimension.options.period = dataPeriod;
+      map.timeDimension.options.currentTime = actualTime;
+//      map.timeDimension.setAvailableTimes(null, extremes); //
+      actualLayerGroup.clearLayers();
+      actualLayerName = actualLayerBaseName.replace(/{h}/g, (actualTimeIndex - baseIndex) * actualInterval);
+
+      $.getJSON(actualLayerBaseURL + actualLayerName + ".json", function (data) {
+        this[actualLayerName] = L.velocityLayer({
+          displayValues: document.getElementById('displayValues').checked,
+          displayOptions: {
+            velocityType: document.getElementById('velocityType').value,
+            emptyString: document.getElementById('emptyString').value,
+            angleConvention: angleConventionValue,
+            speedUnit: speedUnitValue
+          },
+          data: data,
+          minVelocity: parseFloat(document.getElementById('minVelocity').value),
+          maxVelocity: parseFloat(document.getElementById('maxVelocity').value),
+          velocityScale: parseFloat(document.getElementById('velocityScaleSlider').value),
+          particleAge: parseInt(document.getElementById('particleAgeSlider').value),
+          lineWidth: parseInt(document.getElementById('lineWidthSlider').value),
+          particleMultiplier: parseFloat(document.getElementById('particleMultiplierSlider').value),
+          frameRate: parseInt(document.getElementById('frameRateSlider').value),
+          colorScale: colorScale
+        });
+
+        actualLayerGroup.addLayer(this[actualLayerName]);
+        actualLayerArray[actualTimeIndex] = actualLayerGroup.getLayer(actualLayerGroup.getLayerId(this[actualLayerName]));
+        actualLayerGroup.addTo(map);
+      });
+    }
+
+    function updateNumber_0(ev) { //updates text field with integer
+      document.getElementById(ev.target.nextElementSibling.id).value = parseFloat(ev.target.value).toFixed(0);
+    }
+
+    function updateNumber_3(ev) { //updates text field with 3 decimal points
+      document.getElementById(ev.target.nextElementSibling.id).value = parseFloat(ev.target.value).toFixed(3);
+    }
+
+    function updateNumber_4(ev) { //updates text field with 4 decimal points
+      document.getElementById(ev.target.nextElementSibling.id).value = parseFloat(ev.target.value).toFixed(4);
+    }
+
+    function angleConvention (clickedId) {
+      angleConventionValue = clickedId;
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    }
+
+    function speedUnit (clickedId) {
+      speedUnitValue = clickedId;
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    }
+
+    function changeColorScale (clickedId) {
+      colorScale[parseInt(clickedId)] = document.getElementById(clickedId).value;
+      updateLayer(actualLayerArray[actualTimeIndex]);
+    }
+
+    function parameterUpdate () {
+      parameter = document.getElementById('parameter').value;
+      switchParameter (parameter);
+      initializeLayer(actualLayerArray[actualTimeIndex]);
+    }
+
+    function switchParameter (actualLayer) {
+      switch(actualLayer) {
+        case 'wind10m':
+          actualModel = 'GFS';
+          actualLayerBaseURL = wind10mBaseURL;
+          actualLayerBaseName = wind10mBaseName;
+          initDisplayValues = true;
+          initVelocityType = "Wind";
+          initEmptyString = "No wind data";
+          initAngleConvention = "bearingCW";
+          initSpeedUnit = "Bft";
+          initMinVelocity = 0;
+          initMaxVelocity = 30;
+          initVelocityScale = 0.002;
+          initParticleAge = 90;
+          initLineWidth = 1;
+          initParticleMultiplier = 0.0033;
+          initFrameRate = 15;
+          initColorScale = ["#2468b4", "#3c9dc2", "#80cdc1", "#97daa8", "#c6e7b5", "#eef7d9", "#ffee9f", "#fcd97d", "#ffb664", "#fc964b", "#fa7034", "#f54020", "#ed2d1c", "#dc1820", "#b40023"];
+          break;
+        case 'seaSurfaceCurrent':
+          actualModel = 'RTOFS';
+          actualLayerBaseURL = seaSurfaceCurrentBaseURL;
+          actualLayerBaseName = seaSurfaceCurrentBaseName;
+          initDisplayValues = true;
+          initVelocityType = "Current";
+          initEmptyString = "No current data";
+          initAngleConvention = "bearingCW";
+          initSpeedUnit = "kt";
+          initMinVelocity = 0;
+          initMaxVelocity = 1.5;
+          initVelocityScale = 0.03;
+          initParticleAge = 90;
+          initLineWidth = 3;
+          initParticleMultiplier = 0.0033;
+          initFrameRate = 15;
+          initColorScale = ["#2468b4", "#3c9dc2", "#80cdc1", "#97daa8", "#c6e7b5", "#eef7d9", "#ffee9f", "#fcd97d", "#ffb664", "#fc964b", "#fa7034", "#f54020", "#ed2d1c", "#dc1820", "#b40023"];
+          break;
+      }
+
+      switch(actualModel) {
+        case "GFS":
+          startTime = startTimeGFS;
+          actualTime = actualTimeGFS;
+          endTime = endTimeGFS;
+          dataTimeInterval = dataTimeIntervalGFS;
+          actualInterval = actualIntervalGFS;
+          baseIndex = baseIndexGFS;
+          dataPeriod = dataPeriodGFS;
+          break;
+        case "RTOFS":
+          startTime = startTimeRTOFS;
+          actualTime = actualTimeRTOFS;
+          endTime = endTimeRTOFS;
+          dataTimeInterval = dataTimeIntervalRTOFS;
+          actualInterval = actualIntervalRTOFS;
+          baseIndex = baseIndexRTOFS;
+          dataPeriod = dataPeriodRTOFS;
+          break;
+      }
+    }
+
+
+    function showCode() {
+    var w = window.open('', '', 'width=1300,height=1000,resizeable,scrollbars');
+    demoCode = demoCode.replace(/\${actualLayer}/g, actualLayer);
+    demoCode = demoCode.replace("${displayValues}", document.getElementById('displayValues').checked);
+    demoCode = demoCode.replace("${velocityType}", '"' + document.getElementById('velocityType').value + '"');
+    demoCode = demoCode.replace("${emptyString}", '"' + document.getElementById('emptyString').value + '"');
+    demoCode = demoCode.replace("${angleConvention}", '"' + angleConventionValue + '"');
+    demoCode = demoCode.replace("${speedUnit}", '"' + speedUnitValue + '"');
+    demoCode = demoCode.replace("${minVelocity}", parseFloat(document.getElementById('minVelocity').value));
+    demoCode = demoCode.replace("${maxVelocity}", parseFloat(document.getElementById('maxVelocity').value));
+    demoCode = demoCode.replace("${velocityScale}", parseFloat(document.getElementById('velocityScaleSlider').value));
+    demoCode = demoCode.replace("${particleAge}", parseInt(document.getElementById('particleAgeSlider').value));
+    demoCode = demoCode.replace("${lineWidth}", parseInt(document.getElementById('lineWidthSlider').value));
+    demoCode = demoCode.replace("${particleMultiplier}", parseFloat(document.getElementById('particleMultiplierSlider').value));
+    demoCode = demoCode.replace("${frameRate}", parseInt(document.getElementById('frameRateSlider').value));
+    demoCode = demoCode.replace("${colorScale}", "[" + '"' + colorScale[0] + '", "' + colorScale[1] + '", "' + colorScale[2] + '", "' + colorScale[3] + '", "' + colorScale[4] + '", "' + colorScale[5] + '", "' + colorScale[6] + '", "' + colorScale[7] + '", "' + colorScale[8] + '", "' + colorScale[9] + '", "' + colorScale[10] + '", "' + colorScale[11] + '", "' + colorScale[12] + '", "' + colorScale[13] + '", "' + colorScale[14] + '"' + "]");
+    w.document.write(demoCode);
+    w.document.close(); // needed for chrome and safari
+    }
+    var maxVelocityVal = parseInt(document.getElementById('maxVelocity').value);
+    var demoCode;
+    $.get( "codeTemplate_uni.txt", function(code){
+      demoCode = code;
+    });
+  </script>
+</body>
+</html>
